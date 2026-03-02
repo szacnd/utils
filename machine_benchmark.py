@@ -1,0 +1,77 @@
+import time
+import math
+import multiprocessing
+import os
+import random
+import platform
+
+def task(duration):
+    end_time = time.time() + duration
+    operations = 0
+    while time.time() < end_time:
+        for i in range(1, 10000):
+            math.sqrt(i) * math.sin(i) * math.cos(i)
+            operations += 1
+    return operations
+
+def cpu_test(duration):
+    print("Running CPU test...")
+    
+    num_cores = multiprocessing.cpu_count()
+    
+    pool = multiprocessing.Pool(num_cores)
+    results = pool.map(task, [duration] * num_cores)
+    
+    pool.close()
+    pool.join()
+    
+    total_ops = sum(results)
+    
+    return total_ops
+
+def memory_test(size_millions=150):
+    print("Running Memory test...")
+    
+    start = time.time()
+    
+    data = [random.random() for _ in range(size_millions * 1_000_000)]
+    total = sum(data)
+    
+    elapsed = time.time() - start
+    
+    del data
+    return elapsed
+
+def disk_test(size_mb=1000):
+    print("Running Disk test...")
+    filename = "stress_test_file.bin"
+    size = size_mb * 1024 * 1024
+    
+    start = time.time()
+    
+    with open(filename, "wb") as f:
+        f.write(os.urandom(size))
+    
+    write_time = time.time() - start
+    
+    start = time.time()
+    with open(filename, "rb") as f:
+        f.read()
+    read_time = time.time() - start
+    
+    os.remove(filename)
+    
+    return size_mb / write_time, size_mb / read_time
+
+if __name__ == "__main__":
+    print("OS:", platform.system(), platform.release())
+    print("CPU Cores:", multiprocessing.cpu_count())
+    
+    cpu_score = cpu_test(30)
+    memory_time = memory_test(100)
+    write_speed, read_speed = disk_test(500)
+    
+    print(f"CPU Score: {cpu_score:,} ops/sec")
+    print(f"Memory Time: {memory_time:.2f} sec")
+    print(f"Disk Write: {write_speed:.2f} MB/s")
+    print(f"Disk Read: {read_speed:.2f} MB/s")
