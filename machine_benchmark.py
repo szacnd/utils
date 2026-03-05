@@ -4,6 +4,9 @@ import multiprocessing
 import os
 import random
 import platform
+# If gpu is avaliable
+# import numpy as np
+# import cupy as cp
 
 def task(duration):
     end_time = time.time() + duration
@@ -13,6 +16,24 @@ def task(duration):
             math.sqrt(i) * math.sin(i) * math.cos(i)
             operations += 1
     return operations
+
+def gpu_task():
+    N = 5000
+    a = cp.random.randn(N, N, dtype=cp.float32)
+    b = cp.random.randn(N, N, dtype=cp.float32)
+    c = cp.matmul(a, b)
+
+    cp.cuda.stream.get_current_stream().synchronize()
+
+    start = time.time()
+    for _ in range(10):
+        c = cp.matmul(a, b)
+
+    cp.cuda.stream.get_current_stream().synchronize()
+    end = time.time()
+
+    flops = (2 * N**3 * 10)/(end - start)
+    print(f"GPU Flops: {flops / 1e12:.2f}")
 
 def cpu_test(duration):
     print("Running CPU test...")
@@ -72,6 +93,8 @@ if __name__ == "__main__":
     write_speed, read_speed = disk_test(500)
     
     print(f"CPU Score: {cpu_score:,} ops/sec")
+    #if cp.is_available():
+    #    gpu_task()
     print(f"Memory Time: {memory_time:.2f} sec")
     print(f"Disk Write: {write_speed:.2f} MB/s")
     print(f"Disk Read: {read_speed:.2f} MB/s")
