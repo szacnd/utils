@@ -4,9 +4,15 @@ import multiprocessing
 import os
 import random
 import platform
-# If gpu is avaliable
-# import numpy as np
-# import cupy as cp
+
+def get_module():
+    try:
+        import cupy as cp
+        return cp
+    except Exception:
+        print("No GPU/CUDA available")
+        return False
+        
 
 def task(duration):
     end_time = time.time() + duration
@@ -93,8 +99,8 @@ if __name__ == "__main__":
     write_speed, read_speed = disk_test(500)
     
     print(f"CPU Score: {cpu_score:,} ops/sec")
-    #if cp.is_available():
-    #    gpu_task()
+    if get_module():
+        gpu_task()
     print(f"Memory Time: {memory_time:.2f} sec")
     print(f"Disk Write: {write_speed:.2f} MB/s")
     print(f"Disk Read: {read_speed:.2f} MB/s")
