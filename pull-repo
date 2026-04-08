@@ -1,0 +1,95 @@
+#!/usr/bin/env python3
+import os
+import subprocess
+import sys
+from datetime import datetime, UTC
+
+# If you want o use this on your personal project's keep in mind that
+# You should update the line below to your "Projects" folder.
+# This default folder can be overwritten by giving the path as an argument
+DEFAULT_ROOT = os.path.expanduser("~/Projects")
+
+def run(cmd, cwd):
+    try:
+        r = subprocess.run(
+            cmd,
+            cwd=cwd,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True
+        )
+        return r.returncode, r.stdout.strip(), r.stderr.strip()
+    except Exception as e:
+        return 1, "", str(e)
+
+def git(path, *args):
+    return run(["git"] + list(args), path)
+
+def is_repo(path):
+    return os.path.isdir(os.path.join(path, ".git"))
+
+def head(path):
+    c, o, _ = git(path, "rev-parse", "HEAD")
+    return o if c == 0 else None
+
+def branch(path):
+    c, o, _ = git(path, "rev-parse", "--abbrev-ref", "HEAD")
+    return o if c == 0 else "unknown"
+
+def dirty(path):
+    c, o, _ = git(path, "status", "--porcelain")
+    return bool(o.strip())
+
+def commit_delta(path, before, after):
+    if not before or not after or before == after:
+        return 0
+    c, o, _ = git(path, "rev-list", f"{before}..{after}", "--count")
+    return int(o) if c == 0 and o.isdigit() else 0
+
+def log_line(path, br, status, commits, is_dirty, note=None):
+    ts = datetime.now(UTC).strftime("%H:%M")
+    parts = [
+        f"[{ts}]",
+        f"repository={"".join(path.split('/')[-1])}",
+        f"status={status}",
+        f"commits={commits}",
+        f"dirty={'yes' if is_dirty else 'no'}"
+    ]
+    if note:
+        parts.append(f"note={note}")
+    print(" ".join(parts))
+
+def pull(path):
+    br = branch(path)
+    was_dirty = dirty(path)
+    before = head(path)
+
+    c, out, err = git(path, "pull", "--ff-only")
+
+    note = None
+    if c != 0:
+        c, out, err = git(path, "pull")
+        if c == 0:
+            note = "fallback"
+        else:
+            log_line(path, br, "failed", 0, was_dirty, note=err or out)
+            return
+
+    after = head(path)
+    commits = commit_delta(path, before, after)
+
+    status = "updated" if commits > 0 else "up-to-date"
+    log_line(path, br, status, commits, was_dirty, note=note)
+
+def walk(root):
+    for dirpath, dirnames, _ in os.walk(root):
+        if is_repo(dirpath):
+            pull(dirpath)
+            dirnames[:] = []
+
+def main():
+    root = os.path.abspath(sys.argv[1]) if len(sys.argv) > 1 else DEFAULT_ROOT
+    walk(root)
+
+if __name__ == "__main__":
+    main()
